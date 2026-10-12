@@ -35,6 +35,17 @@ bool sdOK = false;
 RTC_DS3231 rtc;
 bool rtcOK = false;
 
+// ---------- Enlace al UNO con pantalla (Serial1: TX1 = pin 18 -> A5 del UNO) ----------
+// Banderas del campo "estado" que se envia a la pantalla
+#define EST_SD_DISPONIBLE  1
+#define EST_GUARDADO_OK    2
+#define EST_RTC_VALIDO     4
+#define EST_HUBO_INTENTO   8
+
+bool ultimoGuardadoOK = false;
+bool huboIntento = false;
+unsigned long filasGuardadas = 0;
+
 void imprimirTemperatura(const char* nombre, float t) {
   Serial.print(nombre);
   Serial.print(": ");
@@ -82,17 +93,55 @@ float leerPT100(Adafruit_MAX31865 &sensor,
   return t;
 }
 
-void escribirCSV(DateTime ahora,
+// Envia una linea al UNO con pantalla (-999 = lectura invalida):
+// AAAA/MM/DD HH:MM:SS,DS18B20_1,DS18B20_2,PT100_1,PT100_2,estado,filas
+// "estado" es el del ciclo anterior (la SD se guarda despues de enviar).
+void enviarDatosPantalla(bool conHora, DateTime ahora,
+                         float d1, float d2,
+                         float p1, float p2) {
+  char fecha[20];
+
+  if (conHora) {
+    snprintf(fecha, sizeof(fecha),
+             "%04d/%02d/%02d %02d:%02d:%02d",
+             ahora.year(), ahora.month(), ahora.day(),
+             ahora.hour(), ahora.minute(), ahora.second());
+  } else {
+    strcpy(fecha, "0000/00/00 00:00:00");
+  }
+
+  uint8_t estado = 0;
+  if (sdOK) estado |= EST_SD_DISPONIBLE;
+  if (ultimoGuardadoOK) estado |= EST_GUARDADO_OK;
+  if (conHora && !rtc.lostPower()) estado |= EST_RTC_VALIDO;
+  if (huboIntento) estado |= EST_HUBO_INTENTO;
+
+  float v[4] = {d1, d2, p1, p2};
+
+  Serial1.print(fecha);
+  for (uint8_t i = 0; i < 4; i++) {
+    Serial1.print(',');
+    if (isnan(v[i]) || v[i] == DEVICE_DISCONNECTED_C) Serial1.print(-999);
+    else Serial1.print(v[i], 2);
+  }
+  Serial1.print(',');
+  Serial1.print(estado);
+  Serial1.print(',');
+  Serial1.println(filasGuardadas);
+}
+
+// Devuelve true solo si el registro quedo guardado en la SD.
+bool escribirCSV(DateTime ahora,
                  float d1, float d2,
                  float p1, float p2) {
-  if (!sdOK) return;
+  if (!sdOK) return false;
 
   File archivo = SD.open("mediciones.csv", FILE_WRITE);
 
   if (!archivo) {
     Serial.println("ERROR: no se pudo abrir mediciones.csv");
     sdOK = false;
-    return;
+    return false;
   }
 
   char fecha[20];
@@ -123,10 +172,12 @@ void escribirCSV(DateTime ahora,
 
   archivo.close();
   Serial.println("CSV: registro guardado");
+  return true;
 }
 
 void setup() {
   Serial.begin(9600);
+  Serial1.begin(9600);  // hacia el UNO con pantalla
   delay(1000);
 
   Serial.println(F("\n=== PRUEBA DE SENSORES ==="));
@@ -233,9 +284,14 @@ void loop() {
     Serial.println(F("Hora no disponible"));
   }
 
+  // Enviar a la pantalla (UNO), haya o no hora disponible
+  enviarDatosPantalla(horaDisponible, ahora, tDS1, tDS2, tPT1, tPT2);
+
   // Guardar solo si el reloj está disponible
   if (horaDisponible) {
-    escribirCSV(ahora, tDS1, tDS2, tPT1, tPT2);
+    huboIntento = true;
+    ultimoGuardadoOK = escribirCSV(ahora, tDS1, tDS2, tPT1, tPT2);
+    if (ultimoGuardadoOK) filasGuardadas++;
   }
 
   Serial.println(F("----------------------------"));
