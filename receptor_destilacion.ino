@@ -136,10 +136,10 @@ bool escribirCSV(DateTime ahora,
                  float p1, float p2) {
   if (!sdOK) return false;
 
-  File archivo = SD.open("mediciones.csv", FILE_WRITE);
+  File archivo = SD.open("medicion.csv", FILE_WRITE);
 
   if (!archivo) {
-    Serial.println("ERROR: no se pudo abrir mediciones.csv");
+    Serial.println("ERROR: no se pudo abrir medicion.csv");
     sdOK = false;
     return false;
   }
@@ -217,10 +217,13 @@ void setup() {
     Serial.println(F("DS3231 detectado"));
 
     if (rtc.lostPower()) {
+      // Se ajusta con la fecha/hora de compilacion (la del PC al subir
+      // el sketch). Solo ocurre cuando el reloj perdio la hora.
       Serial.println(
         F("AVISO: el reloj perdio la hora. "
-          "Ajustala una vez con rtc.adjust().")
+          "Ajustando con la hora de compilacion.")
       );
+      rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
     }
   } else {
     Serial.println(F("ERROR: DS3231 no detectado"));
@@ -234,8 +237,8 @@ void setup() {
   if (sdOK) {
     Serial.println(F("Tarjeta SD detectada"));
 
-    if (!SD.exists("mediciones.csv")) {
-      File archivo = SD.open("mediciones.csv", FILE_WRITE);
+    if (!SD.exists("medicion.csv")) {
+      File archivo = SD.open("medicion.csv", FILE_WRITE);
 
       if (archivo) {
         archivo.println(

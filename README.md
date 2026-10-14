@@ -5,7 +5,7 @@ Se guarda el codigo de arduino para el receptor de destilacion de Omar
 
 | Carpeta / archivo | Placa | Funcion |
 |---|---|---|
-| `receptor_destilacion.ino` | Arduino **Mega 2560** | Lee 2x DS18B20, 2x PT100 (MAX31865) y el reloj DS3231; guarda `mediciones.csv` en la SD y envia cada ciclo los datos a la pantalla. |
+| `receptor_destilacion.ino` | Arduino **Mega 2560** | Lee 2x DS18B20, 2x PT100 (MAX31865) y el reloj DS3231; guarda `medicion.csv` en la SD y envia cada ciclo los datos a la pantalla. |
 | `receptor_uno_pantalla/receptor_uno_pantalla.ino` | Arduino **UNO** + shield TFT ILI9341 2.4" | Recibe los datos del Mega y los muestra. |
 | `PROPUESTAS_MEJORA.md` | - | Propuestas de mejora del codigo completo. |
 
